@@ -1,0 +1,53 @@
+import asyncio
+
+@bot.hybrid_command(description="Grabs a user's Roblox ID from their username")
+async def grab(ctx: commands.Context, *, username: str):
+    retries = 3
+    for attempt in range(retries):
+        try:
+            user_search_url = "https://users.roblox.com/v1/usernames/users"
+            response = requests.post(user_search_url, json={"usernames": [username], "excludeBannedUsers": False})
+            response.raise_for_status()
+            users = response.json().get("data", [])
+
+            embed = discord.Embed(color=0xFFA500)
+
+            if users:
+                roblox_user_id = users[0]["id"]
+                embed.title = "Roblox User ID"
+                embed.description = f"ID for the user '{username}' is {roblox_user_id}."
+            else:
+                embed.title = "User Not Found"
+                embed.description = f"User '{username}' not found on Roblox."
+
+            await ctx.send(embed=embed)
+            return
+
+        except requests.exceptions.RequestException as e:
+            embed = discord.Embed(color=0xFFA500)
+            embed.title = "Error"
+            embed.description = f"Error fetching Roblox user ID: {str(e)}"
+            await ctx.send(embed=embed)
+            return
+        except KeyError:
+            embed = discord.Embed(color=0xFFA500)
+            embed.title = "Error"
+            embed.description = f"User '{username}' not found on Roblox."
+            await ctx.send(embed=embed)
+            return
+        except Exception as e:
+            if attempt < retries - 1:
+                await ctx.send(f"Error: {str(e)}. Retrying in {2 ** attempt} seconds...")
+                await asyncio.sleep(2 ** attempt)
+            else:
+                embed = discord.Embed(color=0xFFA500)
+                embed.title = "Error"
+                embed.description = f"Error: {str(e)}"
+                await ctx.send(embed=embed)
+            continue
+        break
+    else:
+        embed = discord.Embed(color=0xFFA500)
+        embed.title = "Failure"
+        embed.description = "Failed to fetch Roblox user ID after retries."
+        await ctx.send(embed=embed)
